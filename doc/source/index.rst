@@ -20,16 +20,21 @@ The examples in this documentation should work the same way in Python
 2.7 and Python 3.2.
 
 You might be looking for the documentation for `Beautiful Soup 3
-<http://www.crummy.com/software/BeautifulSoup/bs3/documentation.html>`_. If
-you want to learn about the differences between Beautiful Soup 3 and
-Beautiful Soup 4, see `Porting code to BS4`_.
+<http://www.crummy.com/software/BeautifulSoup/bs3/documentation.html>`_.
+If so, you should know that Beautiful Soup 3 is no longer being
+developed, and that Beautiful Soup 4 is recommended for all new
+projects. If you want to learn about the differences between Beautiful
+Soup 3 and Beautiful Soup 4, see `Porting code to BS4`_.
 
 Getting help
 ------------
 
 If you have questions about Beautiful Soup, or run into problems,
 `send mail to the discussion group
-<http://groups.google.com/group/beautifulsoup/>`_.
+<https://groups.google.com/forum/?fromgroups#!forum/beautifulsoup>`_. If
+your problem involves parsing an HTML document, be sure to mention
+:ref:`what the diagnose() function says <diagnose>` about
+that document.
 
 Quick Start
 ===========
@@ -39,7 +44,7 @@ document. It's part of a story from `Alice in Wonderland`::
 
  html_doc = """
  <html><head><title>The Dormouse's story</title></head>
-
+ <body>
  <p class="title"><b>The Dormouse's story</b></p>
 
  <p class="story">Once upon a time there were three little sisters; and their names were
@@ -154,7 +159,7 @@ Installing Beautiful Soup
 If you're using a recent version of Debian or Ubuntu Linux, you can
 install Beautiful Soup with the system package manager:
 
-:kbd:`$ apt-get install python-beautifulsoup4`
+:kbd:`$ apt-get install python-bs4`
 
 Beautiful Soup 4 is published through PyPi, so if you can't install it
 with the system packager, you can install it with ``easy_install`` or
@@ -234,10 +239,10 @@ you might install lxml with one of these commands:
 
 :kbd:`$ pip install lxml`
 
-If you're using Python 2, another alternative is the pure-Python
-`html5lib parser <http://code.google.com/p/html5lib/>`_, which parses
-HTML the way a web browser does. Depending on your setup, you might
-install html5lib with one of these commands:
+Another alternative is the pure-Python `html5lib parser
+<http://code.google.com/p/html5lib/>`_, which parses HTML the way a
+web browser does. Depending on your setup, you might install html5lib
+with one of these commands:
 
 :kbd:`$ apt-get install python-html5lib`
 
@@ -262,10 +267,10 @@ This table summarizes the advantages and disadvantages of each parser library:
 |                      | ``BeautifulSoup(markup, "xml")``           | * The only currently supported |                          |
 |                      |                                            |   XML parser                   |                          |
 +----------------------+--------------------------------------------+--------------------------------+--------------------------+
-| html5lib             | ``BeautifulSoup(markup, html5lib)``        | * Extremely lenient            | * Very slow              |
+| html5lib             | ``BeautifulSoup(markup, "html5lib")``      | * Extremely lenient            | * Very slow              |
 |                      |                                            | * Parses pages the same way a  | * External Python        |
 |                      |                                            |   web browser does             |   dependency             |
-|                      |                                            | * Creates valid HTML5          | * Python 2 only          |
+|                      |                                            | * Creates valid HTML5          |                          |
 +----------------------+--------------------------------------------+--------------------------------+--------------------------+
 
 If you can, I recommend you install and use lxml for speed. If you're
@@ -305,7 +310,8 @@ Kinds of objects
 
 Beautiful Soup transforms a complex HTML document into a complex tree
 of Python objects. But you'll only ever have to deal with about four
-`kinds` of objects.
+`kinds` of objects: ``Tag``, ``NavigableString``, ``BeautifulSoup``,
+and ``Comment``.
 
 .. _Tag:
 
@@ -452,6 +458,12 @@ another, using :ref:`replace_with`::
 them. In particular, since a string can't contain anything (the way a
 tag may contain a string or another tag), strings don't support the
 ``.contents`` or ``.string`` attributes, or the ``find()`` method.
+
+If you want to use a ``NavigableString`` outside of Beautiful Soup,
+you should call ``unicode()`` on it to turn it into a normal Python
+Unicode string. If you don't, your string will carry around a
+reference to the entire Beautiful Soup parse tree, even when you're
+done using Beautiful Soup. This is a big waste of memory.
 
 ``BeautifulSoup``
 -----------------
@@ -968,7 +980,7 @@ Searching the tree
 ==================
 
 Beautiful Soup defines a lot of methods for searching the parse tree,
-but they're all very similar. I'm going to spend a lot of time explain
+but they're all very similar. I'm going to spend a lot of time explaining
 the two most popular methods: ``find()`` and ``find_all()``. The other
 methods take almost exactly the same arguments, so I'll just cover
 them briefly.
@@ -993,7 +1005,7 @@ Once again, I'll be using the "three sisters" document as an example::
  soup = BeautifulSoup(html_doc)
 
 By passing in a filter to an argument like ``find_all()``, you can
-isolate whatever parts of the document you're interested.
+zoom in on the parts of the document you're interested in.
 
 Kinds of filters
 ----------------
@@ -1026,15 +1038,22 @@ A regular expression
 ^^^^^^^^^^^^^^^^^^^^
 
 If you pass in a regular expression object, Beautiful Soup will filter
-against that regular expression. This code finds all the tags whose
-names start with the letter "b"; in this case, the <body> tag and the
-<b> tag::
+against that regular expression using its ``match()`` method. This code
+finds all the tags whose names start with the letter "b"; in this
+case, the <body> tag and the <b> tag::
 
  import re
- for tag in soup.find_all(re.compile("b.*")):
+ for tag in soup.find_all(re.compile("^b")):
      print(tag.name)
  # body
  # b
+
+This code finds all the tags whose names contain the letter 't'::
+
+ for tag in soup.find_all(re.compile("t")):
+     print(tag.name)
+ # html
+ # title
 
 .. _a list:
 
@@ -1086,7 +1105,7 @@ Here's a function that returns ``True`` if a tag defines the "class"
 attribute but doesn't define the "id" attribute::
 
  def has_class_but_no_id(tag):
-     return tag.has_key('class') and not tag.has_key('id')
+     return tag.has_attr('class') and not tag.has_attr('id')
 
 Pass this function into ``find_all()`` and you'll pick up all the <p>
 tags::
@@ -1191,8 +1210,8 @@ against each tag's 'href' attribute::
 You can filter an attribute based on `a string`_, `a regular
 expression`_, `a list`_, `a function`_, or `the value True`_.
 
-This code finds all tags that have an ``id`` attribute, regardless of
-what the value is::
+This code finds all tags whose ``id`` attribute has a value,
+regardless of what the value is::
 
  soup.find_all(id=True)
  # [<a class="sister" href="http://example.com/elsie" id="link1">Elsie</a>,
@@ -1205,50 +1224,46 @@ keyword argument::
  soup.find_all(href=re.compile("elsie"), id='link1')
  # [<a class="sister" href="http://example.com/elsie" id="link1">three</a>]
 
+Some attributes, like the data-* attributes in HTML 5, have names that
+can't be used as the names of keyword arguments::
+
+ data_soup = BeautifulSoup('<div data-foo="value">foo!</div>')
+ data_soup.find_all(data-foo="value")
+ # SyntaxError: keyword can't be an expression
+
+You can use these attributes in searches by putting them into a
+dictionary and passing the dictionary into ``find_all()`` as the
+``attrs`` argument::
+
+ data_soup.find_all(attrs={"data-foo": "value"})
+ # [<div data-foo="value">foo!</div>]
+
 .. _attrs:
 
 Searching by CSS class
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Instead of using keyword arguments, you can filter tags based on their
-attributes by passing a dictionary in for ``attrs``. These two lines of
-code are equivalent::
+It's very useful to search for a tag that has a certain CSS class, but
+the name of the CSS attribute, "class", is a reserved word in
+Python. Using ``class`` as a keyword argument will give you a syntax
+error. As of Beautiful Soup 4.1.2, you can search by CSS class using
+the keyword argument ``class_``::
 
- soup.find_all(href=re.compile("elsie"), id='link1')
- soup.find_all(attrs={'href' : re.compile("elsie"), 'id': 'link1'})
-
-The ``attrs`` argument would be a pretty obscure feature were it not for
-one thing: CSS. It's very useful to search for a tag that has a
-certain CSS class, but the name of the CSS attribute, "class", is also a
-Python reserved word.
-
-You can use ``attrs`` to search by CSS class::
-
- soup.find_all("a", { "class" : "sister" })
+ soup.find_all("a", class_="sister")
  # [<a class="sister" href="http://example.com/elsie" id="link1">Elsie</a>,
  #  <a class="sister" href="http://example.com/lacie" id="link2">Lacie</a>,
  #  <a class="sister" href="http://example.com/tillie" id="link3">Tillie</a>]
 
-But that's a lot of code for such a common operation. Instead, you can
-pass a string `attrs` instead of a dictionary. The string will be used
-to restrict the CSS class::
+As with any keyword argument, you can pass ``class_`` a string, a regular
+expression, a function, or ``True``::
 
- soup.find_all("a", "sister")
- # [<a class="sister" href="http://example.com/elsie" id="link1">Elsie</a>,
- #  <a class="sister" href="http://example.com/lacie" id="link2">Lacie</a>,
- #  <a class="sister" href="http://example.com/tillie" id="link3">Tillie</a>]
-
-You can also pass in a regular expression, a function or
-True. Anything you pass in for ``attrs`` that's not a dictionary will
-be used to search against the CSS class::
-
- soup.find_all(attrs=re.compile("itl"))
+ soup.find_all(class_=re.compile("itl"))
  # [<p class="title"><b>The Dormouse's story</b></p>]
 
  def has_six_characters(css_class):
      return css_class is not None and len(css_class) == 6
 
- soup.find_all(attrs=has_six_characters)
+ soup.find_all(class_=has_six_characters)
  # [<a class="sister" href="http://example.com/elsie" id="link1">Elsie</a>,
  #  <a class="sister" href="http://example.com/lacie" id="link2">Lacie</a>,
  #  <a class="sister" href="http://example.com/tillie" id="link3">Tillie</a>]
@@ -1259,16 +1274,37 @@ matches a certain CSS class, you're matching against `any` of its CSS
 classes::
 
  css_soup = BeautifulSoup('<p class="body strikeout"></p>')
- css_soup.find_all("p", "strikeout")
+ css_soup.find_all("p", class_="strikeout")
  # [<p class="body strikeout"></p>]
 
- css_soup.find_all("p", "body")
+ css_soup.find_all("p", class_="body")
  # [<p class="body strikeout"></p>]
 
-Searching for the string value of the ``class`` attribute won't work::
+You can also search for the exact string value of the ``class`` attribute::
 
- css_soup.find_all("p", "body strikeout")
+ css_soup.find_all("p", class_="body strikeout")
+ # [<p class="body strikeout"></p>]
+
+But searching for variants of the string value won't work::
+
+ css_soup.find_all("p", class_="strikeout body")
  # []
+
+If you want to search for tags that match two or more CSS classes, you
+should use a CSS selector::
+
+ css_soup.select("p.strikeout.body")
+ # [<p class="body strikeout"></p>]
+
+In older versions of Beautiful Soup, which don't have the ``class_``
+shortcut, you can use the ``attrs`` trick mentioned above. Create a
+dictionary whose value for "class" is the string (or regular
+expression, or whatever) you want to search for::
+
+ soup.find_all("a", attrs={"class": "sister"})
+ # [<a class="sister" href="http://example.com/elsie" id="link1">Elsie</a>,
+ #  <a class="sister" href="http://example.com/lacie" id="link2">Lacie</a>,
+ #  <a class="sister" href="http://example.com/tillie" id="link3">Tillie</a>]
 
 .. _text:
 
@@ -1297,7 +1333,7 @@ Here are some examples::
  # [u"The Dormouse's story", u"The Dormouse's story", u'Elsie', u'Lacie', u'Tillie', u'...']
 
 Although ``text`` is for finding strings, you can combine it with
-arguments for finding tags, Beautiful Soup will find all tags whose
+arguments that find tags: Beautiful Soup will find all tags whose
 ``.string`` matches your value for ``text``. This code finds the <a>
 tags whose ``.string`` is "Elsie"::
 
@@ -1579,15 +1615,17 @@ tag it contains.
 CSS selectors
 -------------
 
-Beautiful Soup supports a subset of the `CSS selector standard
-<http://www.w3.org/TR/CSS2/selector.html>`_. Just construct the
-selector as a string and pass it into the ``.select()`` method of a
-``Tag`` or the ``BeautifulSoup`` object itself.
+Beautiful Soup supports the most commonly-used CSS selectors. Just
+pass a string into the ``.select()`` method of a ``Tag`` object or the
+``BeautifulSoup`` object itself.
 
 You can find tags::
 
  soup.select("title")
  # [<title>The Dormouse's story</title>]
+
+ soup.select("p nth-of-type(3)")
+ # [<p class="story">...</p>]
 
 Find tags beneath other tags::
 
@@ -1609,8 +1647,23 @@ Find tags `directly` beneath other tags::
  #  <a class="sister" href="http://example.com/lacie"  id="link2">Lacie</a>,
  #  <a class="sister" href="http://example.com/tillie" id="link3">Tillie</a>]
 
+ soup.select("p > a:nth-of-type(2)")
+ # [<a class="sister" href="http://example.com/lacie" id="link2">Lacie</a>]
+
+ soup.select("p > #link1")
+ # [<a class="sister" href="http://example.com/elsie" id="link1">Elsie</a>]
+
  soup.select("body > a")
  # []
+
+Find the siblings of tags::
+
+ soup.select("#link1 ~ .sister")
+ # [<a class="sister" href="http://example.com/lacie" id="link2">Lacie</a>,
+ #  <a class="sister" href="http://example.com/tillie"  id="link3">Tillie</a>]
+
+ soup.select("#link1 + .sister")
+ # [<a class="sister" href="http://example.com/lacie" id="link2">Lacie</a>]
 
 Find tags by CSS class::
 
@@ -1671,9 +1724,9 @@ Match language codes::
 
 This is a convenience for users who know the CSS selector syntax. You
 can do all this stuff with the Beautiful Soup API. And if CSS
-selectors are all you need, you might as well use lxml directly,
-because it's faster. But this lets you `combine` simple CSS selectors
-with the Beautiful Soup API.
+selectors are all you need, you might as well use lxml directly: it's
+a lot faster, and it supports more CSS selectors. But this lets you
+`combine` simple CSS selectors with the Beautiful Soup API.
 
 
 Modifying the tree
@@ -1752,6 +1805,20 @@ Python string in to ``append()``, or you can call the factory method
    # <b>Hello there.</b>
    tag.contents
    # [u'Hello', u' there']
+
+If you want to create a comment or some other subclass of
+``NavigableString``, pass that class as the second argument to
+``new_string()``::
+
+   from bs4 import Comment
+   new_comment = soup.new_string("Nice to see you.", Comment)
+   tag.append(new_comment)
+   tag
+   # <b>Hello there<!--Nice to see you.--></b>
+   tag.contents
+   # [u'Hello', u' there', u'Nice to see you.']
+
+(This is a new feature in Beautiful Soup 4.2.1.)
 
 What if you need to create a whole new tag?  The best solution is to
 call the factory method ``BeautifulSoup.new_tag()``::
@@ -1929,17 +1996,16 @@ whatever's inside that tag. It's good for stripping out markup::
 Like ``replace_with()``, ``unwrap()`` returns the tag
 that was replaced.
 
-(In earlier versions of Beautiful Soup, ``unwrap()`` was called
-``replace_with_children()``, and that name will still work.)
-
 Output
 ======
+
+.. _.prettyprinting:
 
 Pretty-printing
 ---------------
 
 The ``prettify()`` method will turn a Beautiful Soup parse tree into a
-nicely formatted bytestring, with each HTML/XML tag on its own line::
+nicely formatted Unicode string, with each HTML/XML tag on its own line::
 
   markup = '<a href="http://example.com/">I linked to <i>example.com</i></a>'
   soup = BeautifulSoup(markup)
@@ -2120,7 +2186,7 @@ One last caveat: if you create a ``CData`` object, the text inside
 that object is always presented `exactly as it appears, with no
 formatting`. Beautiful Soup will call the formatter method, just in
 case you've written a custom method that counts all the strings in the
-document or something, but it will ignore the return value.
+document or something, but it will ignore the return value::
 
  from bs4.element import CData
  soup = BeautifulSoup("<a></a>")
@@ -2219,7 +2285,7 @@ into an <html> tag.::
 
  BeautifulSoup("<a><b /></a>", "xml")
  # <?xml version="1.0" encoding="utf-8"?>
- # <a><b /></a>
+ # <a><b/></a>
 
 There are also differences between HTML parsers. If you give Beautiful
 Soup a perfectly-formed HTML document, these differences won't
@@ -2412,9 +2478,11 @@ become Unicode::
  dammit.original_encoding
  # 'utf-8'
 
-The more data you give Unicode, Dammit, the more accurately it will
-guess. If you have your own suspicions as to what the encoding might
-be, you can pass them in as a list::
+Unicode, Dammit's guesses will get a lot more accurate if you install
+the ``chardet`` or ``cchardet`` Python libraries. The more data you
+give Unicode, Dammit, the more accurately it will guess. If you have
+your own suspicions as to what the encoding might be, you can pass
+them in as a list::
 
  dammit = UnicodeDammit("Sacr\xe9 bleu!", ["latin-1", "iso-8859-1"])
  print(dammit.unicode_markup)
@@ -2510,8 +2578,8 @@ ignore everything that wasn't an <a> tag in the first place. The
 document are parsed. You just create a ``SoupStrainer`` and pass it in
 to the ``BeautifulSoup`` constructor as the ``parse_only`` argument.
 
-(Note that *this feature won't work if you're using the html5lib
-parser*. If you use html5lib, the whole document will be parsed, no
+(Note that *this feature won't work if you're using the html5lib parser*.
+If you use html5lib, the whole document will be parsed, no
 matter what. This is because html5lib constantly rearranges the parse
 tree as it works, and if some part of the document didn't actually
 make it into the parse tree, it'll crash. To avoid confusion, in the
@@ -2592,6 +2660,64 @@ thought I'd mention it::
 Troubleshooting
 ===============
 
+.. _diagnose:
+
+``diagnose()``
+--------------
+
+If you're having trouble understanding what Beautiful Soup does to a
+document, pass the document into the ``diagnose()`` function. (New in
+Beautiful Soup 4.2.0.)  Beautiful Soup will print out a report showing
+you how different parsers handle the document, and tell you if you're
+missing a parser that Beautiful Soup could be using::
+
+ from bs4.diagnose import diagnose
+ data = open("bad.html").read()
+ diagnose(data)
+
+ # Diagnostic running on Beautiful Soup 4.2.0
+ # Python version 2.7.3 (default, Aug  1 2012, 05:16:07)
+ # I noticed that html5lib is not installed. Installing it may help.
+ # Found lxml version 2.3.2.0
+ #
+ # Trying to parse your data with html.parser
+ # Here's what html.parser did with the document:
+ # ...
+
+Just looking at the output of diagnose() may show you how to solve the
+problem. Even if not, you can paste the output of ``diagnose()`` when
+asking for help.
+
+Errors when parsing a document
+------------------------------
+
+There are two different kinds of parse errors. There are crashes,
+where you feed a document to Beautiful Soup and it raises an
+exception, usually an ``HTMLParser.HTMLParseError``. And there is
+unexpected behavior, where a Beautiful Soup parse tree looks a lot
+different than the document used to create it.
+
+Almost none of these problems turn out to be problems with Beautiful
+Soup. This is not because Beautiful Soup is an amazingly well-written
+piece of software. It's because Beautiful Soup doesn't include any
+parsing code. Instead, it relies on external parsers. If one parser
+isn't working on a certain document, the best solution is to try a
+different parser. See `Installing a parser`_ for details and a parser
+comparison.
+
+The most common parse errors are ``HTMLParser.HTMLParseError:
+malformed start tag`` and ``HTMLParser.HTMLParseError: bad end
+tag``. These are both generated by Python's built-in HTML parser
+library, and the solution is to :ref:`install lxml or
+html5lib. <parser-installation>`
+
+The most common type of unexpected behavior is that you can't find a
+tag that you know is in the document. You saw it going in, but
+``find_all()`` returns ``[]`` or ``find()`` returns ``None``. This is
+another common problem with Python's built-in HTML parser, which
+sometimes skips tags it doesn't understand.  Again, the solution is to
+:ref:`install lxml or html5lib. <parser-installation>`
+
 Version mismatch problems
 -------------------------
 
@@ -2612,6 +2738,8 @@ Version mismatch problems
 
 * ``ImportError: No module named bs4`` - Caused by running Beautiful
   Soup 4 code on a system that doesn't have BS4 installed.
+
+.. _parsing-xml:
 
 Parsing XML
 -----------
@@ -2635,20 +2763,29 @@ Other parser problems
   parsers`_ for why this matters, and fix the problem by mentioning a
   specific parser library in the ``BeautifulSoup`` constructor.
 
-* ``HTMLParser.HTMLParseError: malformed start tag`` or
-  ``HTMLParser.HTMLParseError: bad end tag`` - Caused by
-  giving Python's built-in HTML parser a document it can't handle. Any
-  other ``HTMLParseError`` is probably the same problem. Solution:
-  :ref:`Install lxml or html5lib. <parser-installation>`
+* Because `HTML tags and attributes are case-insensitive
+  <http://www.w3.org/TR/html5/syntax.html#syntax>`_, all three HTML
+  parsers convert tag and attribute names to lowercase. That is, the
+  markup <TAG></TAG> is converted to <tag></tag>. If you want to
+  preserve mixed-case or uppercase tags and attributes, you'll need to
+  :ref:`parse the document as XML. <parsing-xml>`
 
-* If you can't find a tag that you know is in the document (that is,
-  ``find_all()`` returned ``[]`` or ``find()`` returned ``None``),
-  you're probably using Python's built-in HTML parser, which sometimes
-  skips tags it doesn't understand. Solution: :ref:`Install lxml or
-  html5lib. <parser-installation>`
+.. _misc:
 
 Miscellaneous
 -------------
+
+* ``UnicodeEncodeError: 'charmap' codec can't encode character
+  u'\xfoo' in position bar`` (or just about any other
+  ``UnicodeEncodeError``) - This is not a problem with Beautiful Soup.
+  This problem shows up in two main situations. First, when you try to
+  print a Unicode character that your console doesn't know how to
+  display. (See `this page on the Python wiki
+  <http://wiki.python.org/moin/PrintFails>`_ for help.) Second, when
+  you're writing to a file and you pass in a Unicode character that's
+  not supported by your default encoding.  In this case, the simplest
+  solution is to explicitly encode the Unicode string into UTF-8 with
+  ``u.encode("utf8")``.
 
 * ``KeyError: [attr]`` - Caused by accessing ``tag['attr']`` when the
   tag in question doesn't define the ``attr`` attribute. The most
@@ -2656,13 +2793,20 @@ Miscellaneous
   'class'``. Use ``tag.get('attr')`` if you're not sure ``attr`` is
   defined, just as you would with a Python dictionary.
 
-* ``UnicodeEncodeError: 'charmap' codec can't encode character
-  u'\xfoo' in position bar`` (or just about any other
-  ``UnicodeEncodeError``) - This is not a problem with Beautiful Soup:
-  you're trying to print a Unicode character that your console doesn't
-  know how to display. See `this page on the Python wiki
-  <http://wiki.python.org/moin/PrintFails>`_ for help. One easy
-  solution is to write the text to a file and then look at the file.
+* ``AttributeError: 'ResultSet' object has no attribute 'foo'`` - This
+  usually happens because you expected ``find_all()`` to return a
+  single tag or string. But ``find_all()`` returns a _list_ of tags
+  and strings--a ``ResultSet`` object. You need to iterate over the
+  list and look at the ``.foo`` of each one. Or, if you really only
+  want one result, you need to use ``find()`` instead of
+  ``find_all()``.
+
+* ``AttributeError: 'NoneType' object has no attribute 'foo'`` - This
+  usually happens because you called ``find()`` and then tried to
+  access the `.foo`` attribute of the result. But in your case,
+  ``find()`` didn't find anything, so it returned ``None``, instead of
+  returning a tag or a string. You need to figure out why your
+  ``find()`` call isn't returning anything.
 
 Improving Performance
 ---------------------
@@ -2678,14 +2822,8 @@ you're not using lxml as the underlying parser, my advice is to
 :ref:`start <parser-installation>`. Beautiful Soup parses documents
 significantly faster using lxml than using html.parser or html5lib.
 
-Sometimes `Unicode, Dammit`_ can only detect the encoding of a file by
-doing a byte-by-byte examination of the file. This slows Beautiful
-Soup to a crawl. My tests indicate that this only happened on 2.x
-versions of Python, and that it happened most often with documents
-using Russian or Chinese encodings. If this is happening to you, you
-can fix it by using Python 3 for your script. Or, if you happen to
-know a document's encoding, you can pass it into the
-``BeautifulSoup`` constructor as ``from_encoding``.
+You can speed up encoding detection significantly by installing the
+`cchardet <http://pypi.python.org/pypi/cchardet/>`_ library.
 
 `Parsing only part of a document`_ won't save you much time parsing
 the document, but it can save a lot of memory, and it'll make
@@ -2714,12 +2852,7 @@ BeautifulSoup``, but your code doesn't work, you installed Beautiful
 Soup 3 by mistake. You need to run ``easy_install beautifulsoup4``.
 
 `The documentation for Beautiful Soup 3 is archived online
-<http://www.crummy.com/software/BeautifulSoup/bs3/documentation.html>`_. If
-your first language is Chinese, it might be easier for you to read
-`the Chinese translation of the Beautiful Soup 3 documentation
-<http://www.crummy.com/software/BeautifulSoup/bs3/documentation.zh.html>`_,
-then read this document to find out about the changes made in
-Beautiful Soup 4.
+<http://www.crummy.com/software/BeautifulSoup/bs3/documentation.html>`_.
 
 Porting code to BS4
 -------------------
@@ -2867,10 +3000,13 @@ overlapping ways of dealing with entities, which have been
 removed. The ``BeautifulSoup`` constructor no longer recognizes the
 ``smartQuotesTo`` or ``convertEntities`` arguments. (`Unicode,
 Dammit`_ still has ``smart_quotes_to``, but its default is now to turn
-smart quotes into Unicode.)
+smart quotes into Unicode.) The constants ``HTML_ENTITIES``,
+``XML_ENTITIES``, and ``XHTML_ENTITIES`` have been removed, since they
+configure a feature (transforming some but not all entities into
+Unicode characters) that no longer exists.
 
-If you want to turn those Unicode characters back into HTML entities
-on output, rather than turning them into UTF-8 characters, you need to
+If you want to turn Unicode characters back into HTML entities on
+output, rather than turning them into UTF-8 characters, you need to
 use an :ref:`output formatter <output_formatters>`.
 
 Miscellaneous
@@ -2900,3 +3036,5 @@ The rarely-used alternate parser classes like
 ``ICantBelieveItsBeautifulSoup`` and ``BeautifulSOAP`` have been
 removed. It's now the parser's decision how to handle ambiguous
 markup.
+
+The ``prettify()`` method now returns a Unicode string, not a bytestring.
